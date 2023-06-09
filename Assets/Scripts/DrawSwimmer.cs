@@ -13,8 +13,6 @@ public class DrawSwimmer : MonoBehaviour
     public int DIM_Y;
     public int ParticleDIM_X;
     public int ParticleDIM_Y;
-    public float pr = 0.71f;
-    public float ra =   10000.0f;
     public float tauf = 0.8f;
     public float u0 = 0.01f;
     public int loopCount = 1;
@@ -37,7 +35,7 @@ public class DrawSwimmer : MonoBehaviour
     Texture2D particleTexture;
     RenderTexture renderTexture;
     RenderTexture particleRenderTexture;
-    int init,collisions,streaming,boundaries,plotSpeed,immersedBoundary,initRoundParticles,plotParticle;
+    int init,collisions,streaming,boundaries,plotSpeed,immersedBoundary,initRoundParticles,plotParticle,draw;
     ComputeBuffer uv,f,force;
     ComputeBuffer roundParticleSmallDataBuffer;
     ComputeBuffer roundParticleRoundParticlePerimeterPosBuffer;
@@ -52,7 +50,6 @@ public class DrawSwimmer : MonoBehaviour
 
     public VisualEffect vfx;
     GraphicsBuffer velocityGraphicsBuffer;
-    public bool showGraph;
     float[] uvBuffer;
     void OnDestroy()
     {
@@ -70,9 +67,9 @@ public class DrawSwimmer : MonoBehaviour
     public ComputeShader compute;
 
     float umax, umin, tmp, u2, nu, chi, norm, taug, rbetag, h;
-
-    double[] qArray;
-    Dictionary<int,int> gridPosToQIndex = new Dictionary<int,int>();
+    public bool drawMode;
+    bool initialized = false;
+    bool isTouched;
     // Start is called before the first frame update
     void Start()
     {
@@ -182,6 +179,12 @@ public class DrawSwimmer : MonoBehaviour
         compute.SetTexture(plotParticle,"particleRenderTexture",particleRenderTexture);
         compute.SetBuffer(plotParticle,"roundParticleSmallDataBuffer",roundParticleSmallDataBuffer);
 
+        draw = compute.FindKernel("Draw");
+        compute.SetTexture(draw,"particleRenderTexture",particleRenderTexture);
+    }
+
+    void Init()
+    {
         compute.Dispatch(init,(DIM_X+7)/8,(DIM_Y+7)/8,1);
         if(particleCount > 0)compute.Dispatch(initRoundParticles,(particleCount+63)/64,1,1);
         compute.Dispatch(plotSpeed,(DIM_X+7)/8,(DIM_Y+7)/8,1);
@@ -197,7 +200,38 @@ public class DrawSwimmer : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        int DIM = Mathf.Max(DIM_X,DIM_Y);
+        if(drawMode)
+        {
+            if(Input.GetMouseButton(0))
+            {
+                Vector2 touchPos = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
+                if(Mathf.Abs(touchPos.x) <= 0.5f && Mathf.Abs(touchPos.y) <= 0.5f)
+                {
+                    if(!isTouched)
+                    {
+                        isTouched = true;
+                        compute.SetBool("isTouched",isTouched);
+                    }
+                    compute.SetVector("touchTextureCoord",touchPos);
+                    // compute.Dispatch(draw,(ParticleDIM_X+7)/8,(ParticleDIM_Y+7)/8,1);
+                    compute.Dispatch(draw,1,1,1);
+                    RenderTexture.active = particleRenderTexture;
+                    particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
+                    particleTexture.Apply();
+                }
+                else if(isTouched)
+                {
+                    isTouched = false;
+                    compute.SetBool("isTouched",isTouched);
+                }
+            }
+            return;
+        }
+        if(!initialized) 
+        {
+            Init();
+            initialized = true;
+        }
         if(debugMode)
         {
             debugMode = false;

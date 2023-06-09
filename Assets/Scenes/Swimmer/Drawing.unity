@@ -395,8 +395,8 @@ Canvas:
   m_GameObject: {fileID: 480137040}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 0
-  m_Camera: {fileID: 0}
+  m_RenderMode: 1
+  m_Camera: {fileID: 1117100906}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
@@ -856,8 +856,6 @@ MonoBehaviour:
   DIM_Y: 128
   ParticleDIM_X: 256
   ParticleDIM_Y: 256
-  pr: 0.71
-  ra: 10000
   tauf: 1
   u0: 0
   loopCount: 1
@@ -867,16 +865,16 @@ MonoBehaviour:
   maxSpeed: 100
   debugMode: 0
   debugFrame: 0
-  particleCount: 100
-  particleDensity: 100
-  particleRadius: 2.5
-  epsw: 5
+  particleCount: 10
+  particleDensity: 1.25
+  particleRadius: 5
+  epsw: 100
   zeta: 1
   squirmerBeta: 0
   squirmerSpeedConstant: -0.1
   vfx: {fileID: 1386002}
-  showGraph: 0
   compute: {fileID: 7200000, guid: 36a5331066287964a8a5798c9fdb2de5, type: 3}
+  drawMode: 0
 --- !u!1 &1758036685
 GameObject:
   m_ObjectHideFlags: 0
@@ -945,8 +943,8 @@ Canvas:
   m_GameObject: {fileID: 1758036685}
   m_Enabled: 1
   serializedVersion: 3
-  m_RenderMode: 0
-  m_Camera: {fileID: 0}
+  m_RenderMode: 1
+  m_Camera: {fileID: 1117100906}
   m_PlaneDistance: 100
   m_PixelPerfect: 0
   m_ReceivesEvents: 1
