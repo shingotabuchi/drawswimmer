@@ -858,6 +858,7 @@ MonoBehaviour:
   ParticleDIM_Y: 256
   tauf: 1
   u0: 0
+  particlePointLatticeSpacing: 0.5
   loopCount: 1
   minTemp: 0
   maxTemp: 1
@@ -874,7 +875,7 @@ MonoBehaviour:
   squirmerSpeedConstant: -0.1
   vfx: {fileID: 1386002}
   compute: {fileID: 7200000, guid: 36a5331066287964a8a5798c9fdb2de5, type: 3}
-  drawMode: 0
+  drawMode: 1
 --- !u!1 &1758036685
 GameObject:
   m_ObjectHideFlags: 0

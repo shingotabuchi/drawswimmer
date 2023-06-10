@@ -15,6 +15,8 @@ public class DrawSwimmer : MonoBehaviour
     public int ParticleDIM_Y;
     public float tauf = 0.8f;
     public float u0 = 0.01f;
+    public float particlePointLatticeSpacing = 0.5f;
+    float particlePointFloatSpacing;
     public int loopCount = 1;
 
     public float minTemp = 0f;
@@ -70,6 +72,7 @@ public class DrawSwimmer : MonoBehaviour
     public bool drawMode;
     bool initialized = false;
     bool isTouched;
+    Vector2 prevTouchPoint;
     // Start is called before the first frame update
     void Start()
     {
@@ -78,7 +81,7 @@ public class DrawSwimmer : MonoBehaviour
         vfx.SetInt("DIM_X",DIM_X);
         vfx.SetInt("DIM_Y",DIM_Y);
         int particlePerimeterCount = (int)(2f * Mathf.PI * particleRadius * 2f);
-
+        particlePointFloatSpacing = particlePointLatticeSpacing/(float)DIM_X;
         debugSmallData = new RoundParticleSmallData[particleCount];
         debugFluidVel = new Vector2[particleCount * particlePerimeterCount];
 
@@ -118,7 +121,7 @@ public class DrawSwimmer : MonoBehaviour
         compute.SetBuffer(immersedBoundary,"roundParticleRoundParticlePerimeterFluidVelBuffer",roundParticleRoundParticlePerimeterFluidVelBuffer);
         compute.SetBuffer(immersedBoundary,"roundParticleRoundParticleForceOnPerimeterBuffer",roundParticleRoundParticleForceOnPerimeterBuffer);
         compute.SetBuffer(immersedBoundary,"particleInitPos",roundParticleInitPosBuffer);
-
+        
         compute.SetInt("DIM_X",DIM_X);
         compute.SetInt("DIM_Y",DIM_Y);
         compute.SetInt("ParticleDIM_X",ParticleDIM_X);
@@ -202,28 +205,50 @@ public class DrawSwimmer : MonoBehaviour
     {
         if(drawMode)
         {
+            if(Input.GetMouseButtonDown(0))
+            {
+                prevTouchPoint = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
+            }
             if(Input.GetMouseButton(0))
             {
-                Vector2 touchPos = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
-                if(Mathf.Abs(touchPos.x) <= 0.5f && Mathf.Abs(touchPos.y) <= 0.5f)
+                if(!isTouched)
                 {
-                    if(!isTouched)
-                    {
-                        isTouched = true;
-                        compute.SetBool("isTouched",isTouched);
-                    }
-                    compute.SetVector("touchTextureCoord",touchPos);
-                    // compute.Dispatch(draw,(ParticleDIM_X+7)/8,(ParticleDIM_Y+7)/8,1);
-                    compute.Dispatch(draw,1,1,1);
-                    RenderTexture.active = particleRenderTexture;
-                    particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
-                    particleTexture.Apply();
-                }
-                else if(isTouched)
-                {
-                    isTouched = false;
+                    prevTouchPoint = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
+                    isTouched = true;
                     compute.SetBool("isTouched",isTouched);
                 }
+                else
+                {
+                    Vector2 touchPos = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
+                    if(Mathf.Abs(touchPos.x) <= 0.5f && Mathf.Abs(touchPos.y) <= 0.5f)
+                    {
+                        float magnitude = (touchPos-prevTouchPoint).magnitude;
+                        Vector2 unitVec = (touchPos-prevTouchPoint)/magnitude;
+                        if(magnitude>=particlePointFloatSpacing)
+                        {
+                            float currentdist =particlePointFloatSpacing;
+                            while (currentdist < magnitude)
+                            {
+                                compute.SetVector("touchTextureCoord",prevTouchPoint+unitVec*particlePointFloatSpacing);
+                                compute.Dispatch(draw,1,1,1);
+
+                                currentdist+=particlePointFloatSpacing;
+                                prevTouchPoint = prevTouchPoint+unitVec*particlePointFloatSpacing;
+
+                            }
+                            RenderTexture.active = particleRenderTexture;
+                            particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
+                            particleTexture.Apply();
+                        }
+                    }
+                    else if(isTouched)
+                    {
+                        isTouched = false;
+                        compute.SetBool("isTouched",isTouched);
+                    }
+                }
+
+                // prevTouchPoint = touchPos;
             }
             return;
         }
