@@ -1,3 +1,4 @@
+// コpusher, arrow puller, H puller
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -31,19 +32,33 @@ public class DrawSwimmer : MonoBehaviour
     public float particleDensity = 1.25f;
     public float particleRadius;
     public float epsw = 100.0f, zeta = 1.0f;
+    [Range(-1.5f,1.5f)]
     public float squirmerBeta = 0f;
     public float squirmerSpeedConstant = 0.001f;
+
+    public int drawParticleCount = 1;
+    int maxDrawParticlePerimeterCount = 65536;
+    public int maxXNodes = 16;
     Texture2D plotTexture;
     Texture2D particleTexture;
     RenderTexture renderTexture;
     RenderTexture particleRenderTexture;
     int init,collisions,streaming,boundaries,plotSpeed,immersedBoundary,initRoundParticles,plotParticle,draw;
-    ComputeBuffer uv,f,force;
+    int plotDrawParticles,clearParticleTexture,initDrawParticles,drawParticleBoundary;
+    ComputeBuffer uv,f,force,nodeX;
     ComputeBuffer roundParticleSmallDataBuffer;
     ComputeBuffer roundParticleRoundParticlePerimeterPosBuffer;
     ComputeBuffer roundParticleRoundParticlePerimeterVelBuffer;
     ComputeBuffer roundParticleRoundParticlePerimeterFluidVelBuffer;
     ComputeBuffer roundParticleRoundParticleForceOnPerimeterBuffer;
+
+    ComputeBuffer drawParticleSmallDataBuffer;
+    ComputeBuffer drawParticlePerimeterRelPosBuffer;
+    ComputeBuffer drawParticlePerimeterPosBuffer;
+    ComputeBuffer drawParticlePerimeterVelBuffer;
+    ComputeBuffer drawParticlePerimeterFluidVelBuffer;
+    ComputeBuffer drawParticleForceOnPerimeterBuffer;
+
     ComputeBuffer roundParticleInitPosBuffer;
     Vector2[] particleInitPos;
 
@@ -58,12 +73,22 @@ public class DrawSwimmer : MonoBehaviour
         uv.Dispose();
         f.Dispose();
         force.Dispose();
+        nodeX.Dispose();
         roundParticleInitPosBuffer.Dispose();
+
         roundParticleSmallDataBuffer.Dispose();
         roundParticleRoundParticlePerimeterPosBuffer.Dispose();
         roundParticleRoundParticlePerimeterVelBuffer.Dispose();
         roundParticleRoundParticlePerimeterFluidVelBuffer.Dispose();
         roundParticleRoundParticleForceOnPerimeterBuffer.Dispose();
+
+        drawParticleSmallDataBuffer.Dispose();
+        drawParticlePerimeterRelPosBuffer.Dispose();
+        drawParticlePerimeterPosBuffer.Dispose();
+        drawParticlePerimeterVelBuffer.Dispose();
+        drawParticlePerimeterFluidVelBuffer.Dispose();
+        drawParticleForceOnPerimeterBuffer.Dispose();
+
         velocityGraphicsBuffer.Dispose();
     }
     public ComputeShader compute;
@@ -71,8 +96,9 @@ public class DrawSwimmer : MonoBehaviour
     float umax, umin, tmp, u2, nu, chi, norm, taug, rbetag, h;
     public bool drawMode;
     bool initialized = false;
-    bool isTouched;
+    public bool isTouched;
     Vector2 prevTouchPoint;
+    Vector2 initialTouchPoint;
     // Start is called before the first frame update
     void Start()
     {
@@ -81,7 +107,7 @@ public class DrawSwimmer : MonoBehaviour
         vfx.SetInt("DIM_X",DIM_X);
         vfx.SetInt("DIM_Y",DIM_Y);
         int particlePerimeterCount = (int)(2f * Mathf.PI * particleRadius * 2f);
-        particlePointFloatSpacing = particlePointLatticeSpacing/(float)DIM_X;
+        particlePointFloatSpacing = (particlePointLatticeSpacing * 1080f)/(float)DIM_X;
         debugSmallData = new RoundParticleSmallData[particleCount];
         debugFluidVel = new Vector2[particleCount * particlePerimeterCount];
 
@@ -91,7 +117,7 @@ public class DrawSwimmer : MonoBehaviour
         ((RectTransform)plotImage.transform).sizeDelta = new Vector2(DIM_X*1080/DIM_Y,1080);
 
         particleTexture = new Texture2D(ParticleDIM_X,ParticleDIM_Y);
-        // particleTexture.filterMode = FilterMode.Point;
+        particleTexture.filterMode = FilterMode.Point;
         particleImage.sprite = Sprite.Create(particleTexture, new Rect(0,0,ParticleDIM_X,ParticleDIM_Y),UnityEngine.Vector2.zero);
         ((RectTransform)particleImage.transform).sizeDelta = new Vector2(ParticleDIM_X*1080/ParticleDIM_Y,1080);
 
@@ -110,6 +136,16 @@ public class DrawSwimmer : MonoBehaviour
         roundParticleRoundParticlePerimeterVelBuffer = new ComputeBuffer(particleCount * particlePerimeterCount,sizeof(float) * 2);
         roundParticleRoundParticlePerimeterFluidVelBuffer = new ComputeBuffer(particleCount * particlePerimeterCount,sizeof(float) * 2);
         roundParticleRoundParticleForceOnPerimeterBuffer = new ComputeBuffer(particleCount * particlePerimeterCount,sizeof(float) * 2);
+
+        drawParticleSmallDataBuffer = new ComputeBuffer(drawParticleCount,Marshal.SizeOf(typeof(DrawParticleSmallData)));
+        drawParticlePerimeterRelPosBuffer = new ComputeBuffer(drawParticleCount * maxDrawParticlePerimeterCount,sizeof(float) * 2);
+        drawParticlePerimeterPosBuffer = new ComputeBuffer(drawParticleCount * maxDrawParticlePerimeterCount,sizeof(float) * 2);
+        drawParticlePerimeterVelBuffer = new ComputeBuffer(drawParticleCount * maxDrawParticlePerimeterCount,sizeof(float) * 2);
+        drawParticlePerimeterFluidVelBuffer = new ComputeBuffer(drawParticleCount * maxDrawParticlePerimeterCount,sizeof(float) * 2);
+        drawParticleForceOnPerimeterBuffer = new ComputeBuffer(drawParticleCount * maxDrawParticlePerimeterCount,sizeof(float) * 2);
+        
+        nodeX = new ComputeBuffer(maxXNodes*ParticleDIM_Y,sizeof(int));
+
         roundParticleInitPosBuffer = new ComputeBuffer(particleCount,sizeof(float) * 2);
 
         immersedBoundary = compute.FindKernel("ImmersedBoundary");
@@ -121,17 +157,31 @@ public class DrawSwimmer : MonoBehaviour
         compute.SetBuffer(immersedBoundary,"roundParticleRoundParticlePerimeterFluidVelBuffer",roundParticleRoundParticlePerimeterFluidVelBuffer);
         compute.SetBuffer(immersedBoundary,"roundParticleRoundParticleForceOnPerimeterBuffer",roundParticleRoundParticleForceOnPerimeterBuffer);
         compute.SetBuffer(immersedBoundary,"particleInitPos",roundParticleInitPosBuffer);
+
+        drawParticleBoundary = compute.FindKernel("DrawParticleBoundary");
+        compute.SetBuffer(drawParticleBoundary,"uv",uv);
+        compute.SetBuffer(drawParticleBoundary,"force",force);
+        compute.SetBuffer(drawParticleBoundary,"drawParticleSmallDataBuffer",drawParticleSmallDataBuffer);
+        compute.SetBuffer(drawParticleBoundary,"drawParticlePerimeterRelPosBuffer",drawParticlePerimeterRelPosBuffer);
+        compute.SetBuffer(drawParticleBoundary,"drawParticlePerimeterPosBuffer",drawParticlePerimeterPosBuffer);
+        compute.SetBuffer(drawParticleBoundary,"drawParticlePerimeterVelBuffer",drawParticlePerimeterVelBuffer);
+        compute.SetBuffer(drawParticleBoundary,"drawParticlePerimeterFluidVelBuffer",drawParticlePerimeterFluidVelBuffer);
+        compute.SetBuffer(drawParticleBoundary,"drawParticleForceOnPerimeterBuffer",drawParticleForceOnPerimeterBuffer);
         
+        compute.SetInt("maxXNodes",maxXNodes);
         compute.SetInt("DIM_X",DIM_X);
         compute.SetInt("DIM_Y",DIM_Y);
         compute.SetInt("ParticleDIM_X",ParticleDIM_X);
         compute.SetInt("ParticleDIM_Y",ParticleDIM_Y);
+        compute.SetInt("maxDrawParticlePerimeterCount",maxDrawParticlePerimeterCount);
         compute.SetFloat("minSpeed",minSpeed);
+        compute.SetFloat("maxRadius",(float)ParticleDIM_X/2f);
         compute.SetFloat("maxSpeed",maxSpeed);
         compute.SetFloat("squirmerSpeedConstant",squirmerSpeedConstant);
         compute.SetFloat("squirmerBeta",squirmerBeta);
         compute.SetFloat("u0",u0);
         compute.SetFloat("tauf",tauf);
+        compute.SetFloat("particlePointLatticeSpacing",particlePointLatticeSpacing);
 
         compute.SetInt("particleCount",particleCount);
         compute.SetFloat("particleDensity",particleDensity);
@@ -184,74 +234,129 @@ public class DrawSwimmer : MonoBehaviour
 
         draw = compute.FindKernel("Draw");
         compute.SetTexture(draw,"particleRenderTexture",particleRenderTexture);
+        compute.SetBuffer(draw,"drawParticleSmallDataBuffer",drawParticleSmallDataBuffer);
+        compute.SetBuffer(draw,"drawParticlePerimeterPosBuffer",drawParticlePerimeterPosBuffer);
+
+        plotDrawParticles = compute.FindKernel("PlotDrawParticles");
+        compute.SetBuffer(plotDrawParticles,"nodeX",nodeX);
+        compute.SetTexture(plotDrawParticles,"particleRenderTexture",particleRenderTexture);
+        compute.SetBuffer(plotDrawParticles,"drawParticleSmallDataBuffer",drawParticleSmallDataBuffer);
+        compute.SetBuffer(plotDrawParticles,"drawParticlePerimeterPosBuffer",drawParticlePerimeterPosBuffer);
+
+        initDrawParticles = compute.FindKernel("InitDrawParticles");
+        compute.SetBuffer(initDrawParticles,"nodeX",nodeX);
+        compute.SetTexture(initDrawParticles,"renderTexture",renderTexture);
+        compute.SetBuffer(initDrawParticles,"drawParticleSmallDataBuffer",drawParticleSmallDataBuffer);
+        compute.SetBuffer(initDrawParticles,"drawParticlePerimeterPosBuffer",drawParticlePerimeterPosBuffer);
+        compute.SetBuffer(initDrawParticles,"drawParticlePerimeterRelPosBuffer",drawParticlePerimeterRelPosBuffer);
+        compute.SetBuffer(initDrawParticles,"drawParticlePerimeterVelBuffer",drawParticlePerimeterVelBuffer);
+        compute.SetBuffer(initDrawParticles,"drawParticlePerimeterFluidVelBuffer",drawParticlePerimeterFluidVelBuffer);
+        compute.SetBuffer(initDrawParticles,"drawParticleForceOnPerimeterBuffer",drawParticleForceOnPerimeterBuffer);
+
+        clearParticleTexture = compute.FindKernel("ClearParticleTexture");
+        compute.SetTexture(clearParticleTexture,"particleRenderTexture",particleRenderTexture);
     }
 
     void Init()
     {
         compute.Dispatch(init,(DIM_X+7)/8,(DIM_Y+7)/8,1);
-        if(particleCount > 0)compute.Dispatch(initRoundParticles,(particleCount+63)/64,1,1);
+        
+        // if(particleCount > 0)compute.Dispatch(initRoundParticles,(particleCount+63)/64,1,1);
         compute.Dispatch(plotSpeed,(DIM_X+7)/8,(DIM_Y+7)/8,1);
         RenderTexture.active = renderTexture;
         plotTexture.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
         plotTexture.Apply();
-        compute.Dispatch(plotParticle,(ParticleDIM_X+7)/8,(ParticleDIM_Y+7)/8,1);
+        compute.Dispatch(plotDrawParticles,(ParticleDIM_Y+63)/64,1,1);
         RenderTexture.active = particleRenderTexture;
         particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
         particleTexture.Apply();
     }
 
+    void Update()
+    {
+        if(!drawMode) return;
+        if(Input.GetMouseButtonDown(0))
+        {
+            initialTouchPoint = MousePositionToCanvasPosition((Vector2)Input.mousePosition);
+            prevTouchPoint = initialTouchPoint;
+            isTouched = false;
+            compute.SetBool("isTouched",isTouched);
+            compute.Dispatch(draw,1,1,1);
+            isTouched = true;
+            compute.SetBool("isTouched",isTouched);
+        }
+        if(Input.GetMouseButtonUp(0))
+        {
+            isTouched = false;
+            DrawPosition(initialTouchPoint);
+            compute.SetBool("drawParticlesInitialized",false);
+            compute.Dispatch(clearParticleTexture,(ParticleDIM_X+7)/8,(ParticleDIM_Y+7)/8,1);
+            compute.Dispatch(initDrawParticles,(drawParticleCount+63)/64,1,1);
+            RenderTexture.active = renderTexture;
+            plotTexture.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
+            plotTexture.Apply();
+            RenderTexture.active = particleRenderTexture;
+            particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
+            particleTexture.Apply();
+            drawMode = false;
+        }
+
+        if(isTouched)
+        {
+            Vector2 touchPos = MousePositionToCanvasPosition((Vector2)Input.mousePosition);
+            DrawPosition(touchPos);
+        }
+    }
+
+    void DrawPosition(Vector2 position)
+    {
+        if(PosOnCanvas(position))
+        {
+            float magnitude = (position-prevTouchPoint).magnitude;
+            Vector2 unitVec = (position-prevTouchPoint)/magnitude;
+            if(magnitude>=particlePointFloatSpacing)
+            {
+                float currentdist =particlePointFloatSpacing;
+                while (currentdist < magnitude)
+                {
+                    compute.SetVector("touchTextureCoord",prevTouchPoint+unitVec*particlePointFloatSpacing);
+                    compute.Dispatch(draw,1,1,1);
+
+                    currentdist+=particlePointFloatSpacing;
+                    prevTouchPoint = prevTouchPoint+unitVec*particlePointFloatSpacing;
+
+                }
+                RenderTexture.active = particleRenderTexture;
+                particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
+                particleTexture.Apply();
+            }
+        }
+        else
+        {
+            isTouched = false;
+            compute.SetBool("isTouched",isTouched);
+        }
+    }
+
+    bool PosOnCanvas(Vector2 pos)
+    {
+        if(pos.x < 0) return false;
+        if(pos.x > 1080) return false;
+        if(pos.y < 0) return false;
+        if(pos.y > 1080) return false;
+
+        return true;
+    }
+
+    Vector2 MousePositionToCanvasPosition(Vector2 mousePosition)
+    {
+        return ((Vector2)mousePosition - particleImage.GetComponent<RectTransform>().anchoredPosition);
+    }
+
     // Update is called once per frame
     void FixedUpdate()
     {
-        if(drawMode)
-        {
-            if(Input.GetMouseButtonDown(0))
-            {
-                prevTouchPoint = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
-            }
-            if(Input.GetMouseButton(0))
-            {
-                if(!isTouched)
-                {
-                    prevTouchPoint = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
-                    isTouched = true;
-                    compute.SetBool("isTouched",isTouched);
-                }
-                else
-                {
-                    Vector2 touchPos = ((Vector2)Input.mousePosition - new Vector2(1080f,1080f)/2f - particleImage.GetComponent<RectTransform>().anchoredPosition)/1080f;
-                    if(Mathf.Abs(touchPos.x) <= 0.5f && Mathf.Abs(touchPos.y) <= 0.5f)
-                    {
-                        float magnitude = (touchPos-prevTouchPoint).magnitude;
-                        Vector2 unitVec = (touchPos-prevTouchPoint)/magnitude;
-                        if(magnitude>=particlePointFloatSpacing)
-                        {
-                            float currentdist =particlePointFloatSpacing;
-                            while (currentdist < magnitude)
-                            {
-                                compute.SetVector("touchTextureCoord",prevTouchPoint+unitVec*particlePointFloatSpacing);
-                                compute.Dispatch(draw,1,1,1);
-
-                                currentdist+=particlePointFloatSpacing;
-                                prevTouchPoint = prevTouchPoint+unitVec*particlePointFloatSpacing;
-
-                            }
-                            RenderTexture.active = particleRenderTexture;
-                            particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
-                            particleTexture.Apply();
-                        }
-                    }
-                    else if(isTouched)
-                    {
-                        isTouched = false;
-                        compute.SetBool("isTouched",isTouched);
-                    }
-                }
-
-                // prevTouchPoint = touchPos;
-            }
-            return;
-        }
+        if(drawMode) return;
         if(!initialized) 
         {
             Init();
@@ -270,7 +375,7 @@ public class DrawSwimmer : MonoBehaviour
             {
                 compute.Dispatch(collisions,(DIM_X+7)/8,(DIM_Y+7)/8,1);
                 compute.Dispatch(streaming,(DIM_X+7)/8,(DIM_Y+7)/8,1);
-                if(particleCount > 0)compute.Dispatch(immersedBoundary,(particleCount+63)/64,1,1);
+                compute.Dispatch(drawParticleBoundary,(drawParticleCount+63)/64,1,1);
             }
         }
 
@@ -279,7 +384,8 @@ public class DrawSwimmer : MonoBehaviour
         RenderTexture.active = renderTexture;
         plotTexture.ReadPixels(new Rect(0, 0, renderTexture.width, renderTexture.height), 0, 0);
         plotTexture.Apply();
-        compute.Dispatch(plotParticle,(ParticleDIM_X+7)/8,(ParticleDIM_Y+7)/8,1);
+        compute.Dispatch(clearParticleTexture,(ParticleDIM_X+7)/8,(ParticleDIM_Y+7)/8,1);
+        compute.Dispatch(plotDrawParticles,(ParticleDIM_Y+63)/64,1,1);
         RenderTexture.active = particleRenderTexture;
         particleTexture.ReadPixels(new Rect(0, 0, particleRenderTexture.width, particleRenderTexture.height), 0, 0);
         particleTexture.Apply();

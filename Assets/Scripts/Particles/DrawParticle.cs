@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System.Runtime.InteropServices;
-public struct RoundParticleSmallData
+public struct DrawParticleSmallData
 {
     public float density;
     public float omega;//角速度
@@ -11,10 +11,8 @@ public struct RoundParticleSmallData
     public float prevOmega2;//前々フレームの角速度
     public float torque;
     public int perimeterPointCount;
-    public float volume;
     public float mass;
     public float momentOfInertia;
-    public float radius;
     public int bottomPointIndex;
 
     public Vector2 pos;

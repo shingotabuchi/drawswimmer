@@ -854,28 +854,31 @@ MonoBehaviour:
   particleImage: {fileID: 830696294}
   DIM_X: 128
   DIM_Y: 128
-  ParticleDIM_X: 256
-  ParticleDIM_Y: 256
-  tauf: 1
+  ParticleDIM_X: 512
+  ParticleDIM_Y: 512
+  tauf: 0.53
   u0: 0
   particlePointLatticeSpacing: 0.5
-  loopCount: 1
+  loopCount: 10
   minTemp: 0
   maxTemp: 1
   minSpeed: 0
   maxSpeed: 100
   debugMode: 0
   debugFrame: 0
-  particleCount: 10
-  particleDensity: 1.25
+  particleCount: 1
+  particleDensity: 2
   particleRadius: 5
   epsw: 100
   zeta: 1
   squirmerBeta: 0
   squirmerSpeedConstant: -0.1
+  drawParticleCount: 1
+  maxXNodes: 16
   vfx: {fileID: 1386002}
   compute: {fileID: 7200000, guid: 36a5331066287964a8a5798c9fdb2de5, type: 3}
   drawMode: 1
+  isTouched: 0
 --- !u!1 &1758036685
 GameObject:
   m_ObjectHideFlags: 0
