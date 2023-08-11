@@ -21,6 +21,9 @@ int particleCount;
 int particlePerimeterCount;
 int maxDrawParticlePerimeterCount;
 int maxXNodes;
+int wavecount;
+int shuuki;
+float wavescale;
 bool drawParticlesInitialized;
 RWStructuredBuffer<float> uv,f;
 RWStructuredBuffer<float2> velocityBuffer;
@@ -63,6 +66,7 @@ struct DrawParticleSmallData
     int perimeterPointCount;
     float mass;
     float momentOfInertia;
+    int time;
     int bottomPointIndex;
 
     float2 pos;
@@ -102,6 +106,7 @@ float touchForceRadius;
 float touchForce;
 float squirmerBeta,squirmerSpeedConstant;
 float maxRadius;
+int drawParticleMode;
 float4 ColorMap(float val, float maxVal)
 {
     if(val > maxVal) val = maxVal;
@@ -200,6 +205,7 @@ void InitDrawParticles(uint3 id : SV_DispatchThreadID)
     drawParticleSmallDataBuffer[id.x].forceFromFluid = float2(0,0);
     drawParticleSmallDataBuffer[id.x].theta = 0;
     drawParticleSmallDataBuffer[id.x].omega = 0;
+    drawParticleSmallDataBuffer[id.x].time = 0;
     drawParticleSmallDataBuffer[id.x].prevOmega1 = 0;
     drawParticleSmallDataBuffer[id.x].prevOmega2 = 0;
     drawParticleSmallDataBuffer[id.x].torque = 0;
@@ -854,8 +860,18 @@ void DrawParticleBoundary (uint3 id : SV_DispatchThreadID)
     drawParticleSmallDataBuffer[id.x].prevOmega2 = drawParticleSmallDataBuffer[id.x].prevOmega1;
     drawParticleSmallDataBuffer[id.x].prevOmega1 = drawParticleSmallDataBuffer[id.x].omega;
 
+    drawParticleSmallDataBuffer[id.x].time++;
     for(i = 0; i < drawParticleSmallDataBuffer[id.x].perimeterPointCount; i++) 
     {
+        // float spacePhase = 2*pi*(float(wavecount*i)/float(ppc));
+        // float timeScale = 2*pi/float(shuuki);
+        float spacePhase = 2*pi*(float(wavecount*i)/float(ppc));
+        float timeScale = 2*pi/float(shuuki);
+        float timePhase = timeScale*float(drawParticleSmallDataBuffer[id.x].time);
+        float phase = spacePhase - timePhase;
+        float2 relPos = drawParticlePerimeterRelPosBuffer[id.x*ppc + i];
+        if(drawParticleMode == 1) relPos = drawParticlePerimeterRelPosBuffer[id.x*ppc + i]*( 1 + wavescale*cos(phase));
+
         float xdiff = drawParticlePerimeterPosBuffer[id.x*ppc + i].x - drawParticleSmallDataBuffer[id.x].pos.x;
         float ydiff = drawParticlePerimeterPosBuffer[id.x*ppc + i].y - drawParticleSmallDataBuffer[id.x].pos.y;
         for(j = 0;j < 5;j++)
@@ -871,10 +887,15 @@ void DrawParticleBoundary (uint3 id : SV_DispatchThreadID)
                 ydiff = dy;
             }
         }
-        drawParticlePerimeterPosBuffer[id.x*ppc + i] = RotateVec(drawParticlePerimeterRelPosBuffer[id.x*ppc + i],drawParticleSmallDataBuffer[id.x].theta) + drawParticleSmallDataBuffer[id.x].pos;
+        // float2 periRelPos = RotateVec(drawParticlePerimeterRelPosBuffer[id.x*ppc + i],drawParticleSmallDataBuffer[id.x].theta);
+        float2 periRelPos = RotateVec(relPos,drawParticleSmallDataBuffer[id.x].theta);
+        // float2 periRelPosNormal = periRelPos/sqrt(periRelPos.x*periRelPos.x + periRelPos.y*periRelPos.y);
+        drawParticlePerimeterPosBuffer[id.x*ppc + i] = periRelPos + drawParticleSmallDataBuffer[id.x].pos;
         drawParticlePerimeterVelBuffer[id.x*ppc + i].x = drawParticleSmallDataBuffer[id.x].vel.x - drawParticleSmallDataBuffer[id.x].omega*ydiff;
         drawParticlePerimeterVelBuffer[id.x*ppc + i].y = drawParticleSmallDataBuffer[id.x].vel.y + drawParticleSmallDataBuffer[id.x].omega*xdiff;
         drawParticlePerimeterPosBuffer[id.x*ppc + i] = PeriodicPos(drawParticlePerimeterPosBuffer[id.x*ppc + i]);
+
+        if(drawParticleMode == 1) drawParticlePerimeterVelBuffer[id.x*ppc + i] += periRelPos *wavescale*timeScale*sin(phase);
     } 
 } 
 

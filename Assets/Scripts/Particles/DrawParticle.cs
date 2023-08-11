@@ -13,6 +13,7 @@ public struct DrawParticleSmallData
     public int perimeterPointCount;
     public float mass;
     public float momentOfInertia;
+    public int time;
     public int bottomPointIndex;
 
     public Vector2 pos;

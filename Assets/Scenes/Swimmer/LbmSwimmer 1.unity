@@ -321,25 +321,24 @@ MonoBehaviour:
   ParticleDIM_Y: 256
   pr: 0.71
   ra: 10000
-  tauf: 1
+  tauf: 0.6
   u0: 0
-  loopCount: 1
+  loopCount: 10
   minTemp: 0
   maxTemp: 1
   minSpeed: 0
   maxSpeed: 100
   debugMode: 0
   debugFrame: 0
-  particleCount: 100
+  particleCount: 200
   particleDensity: 100
   particleRadius: 2.5
-  epsw: 5
-  zeta: 1
+  epsw: 4.1666665
+  zeta: 0.8333333
   squirmerBeta: 0
   squirmerSpeedConstant: -0.1
   vfx: {fileID: 1565565968}
   showGraph: 0
-  graph: {fileID: 0}
   compute: {fileID: 7200000, guid: 36a5331066287964a8a5798c9fdb2de5, type: 3}
 --- !u!1 &795637844
 GameObject:

@@ -852,14 +852,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   plotImage: {fileID: 349746977}
   particleImage: {fileID: 830696294}
-  DIM_X: 128
-  DIM_Y: 128
+  DIM_X: 64
+  DIM_Y: 64
   ParticleDIM_X: 512
   ParticleDIM_Y: 512
   tauf: 0.53
   u0: 0
   particlePointLatticeSpacing: 0.5
   loopCount: 10
+  wavecount: 2
+  drawParticleMode: 1
+  shuuki: 100
+  wavescale: 0.1
   minTemp: 0
   maxTemp: 1
   minSpeed: 0
@@ -872,7 +876,7 @@ MonoBehaviour:
   epsw: 100
   zeta: 1
   squirmerBeta: 0
-  squirmerSpeedConstant: -0.1
+  squirmerSpeedConstant: 0
   drawParticleCount: 1
   maxXNodes: 16
   vfx: {fileID: 1386002}
