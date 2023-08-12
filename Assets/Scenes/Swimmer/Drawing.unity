@@ -852,14 +852,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   plotImage: {fileID: 349746977}
   particleImage: {fileID: 830696294}
-  DIM_X: 128
-  DIM_Y: 128
-  ParticleDIM_X: 512
-  ParticleDIM_Y: 512
+  DIM_X: 64
+  DIM_Y: 64
+  ParticleDIM_X: 256
+  ParticleDIM_Y: 256
   tauf: 0.53
   u0: 0
   particlePointLatticeSpacing: 0.5
-  loopCount: 10
+  loopCount: 1
   minTemp: 0
   maxTemp: 1
   minSpeed: 0
