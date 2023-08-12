@@ -854,12 +854,16 @@ MonoBehaviour:
   particleImage: {fileID: 830696294}
   DIM_X: 64
   DIM_Y: 64
-  ParticleDIM_X: 256
-  ParticleDIM_Y: 256
+  ParticleDIM_X: 512
+  ParticleDIM_Y: 512
   tauf: 0.53
   u0: 0
   particlePointLatticeSpacing: 0.5
-  loopCount: 1
+  loopCount: 10
+  wavecount: 2
+  drawParticleMode: 0
+  shuuki: 200
+  wavescale: 0.2
   minTemp: 0
   maxTemp: 1
   minSpeed: 0
