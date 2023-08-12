@@ -861,9 +861,9 @@ MonoBehaviour:
   particlePointLatticeSpacing: 0.5
   loopCount: 10
   wavecount: 2
-  drawParticleMode: 1
-  shuuki: 100
-  wavescale: 0.1
+  drawParticleMode: 0
+  shuuki: 200
+  wavescale: 0.2
   minTemp: 0
   maxTemp: 1
   minSpeed: 0
@@ -876,7 +876,7 @@ MonoBehaviour:
   epsw: 100
   zeta: 1
   squirmerBeta: 0
-  squirmerSpeedConstant: 0
+  squirmerSpeedConstant: -0.1
   drawParticleCount: 1
   maxXNodes: 16
   vfx: {fileID: 1386002}
