@@ -23,4 +23,6 @@ public struct RoundParticleSmallData
     public Vector2 prevVel2;//前々フレームの速度
     public Vector2 forceFromCollisions;
     public Vector2 forceFromFluid;
+
+    public bool notActive;
 }
